@@ -7,7 +7,7 @@ export interface WorkerOptions {
   concurrency?: number;
   pollIntervalMs?: number;
   maxProcessingMs?: number;
-  maintenanceIntervalMs?: number; // how often to run recovery + promotion
+  maintenanceIntervalMs?: number; 
 }
 
 export class Worker {
@@ -28,11 +28,8 @@ export class Worker {
 
     console.log(`[Worker] Starting for queue "${this.queue.name}" (concurrency=${concurrency})`);
 
-    // Run maintenance (recovery + promotion) on a separate timer shared
-    // across all poll loops — avoids hammering Redis on every tick.
     this.scheduleMaintenance(maintenanceIntervalMs);
 
-    // Spin up N independent poll loops
     for (let i = 0; i < concurrency; i++) {
       this.pollLoop(pollIntervalMs);
     }
@@ -48,13 +45,6 @@ export class Worker {
     }
   }
 
-  // ----- private -----
-
-  /**
-   * Runs recoverStuckJobs + promoteDelayedJobs once every
-   * maintenanceIntervalMs from a single shared timer rather than
-   * inside every poll loop iteration.
-   */
   private scheduleMaintenance(intervalMs: number) {
     const maxProcessingMs = this.options.maxProcessingMs ?? 30_000;
 
@@ -68,7 +58,6 @@ export class Worker {
       }
     };
 
-    // Run once immediately on start, then on interval
     run();
     this.maintenanceTimer = setInterval(run, intervalMs);
   }
@@ -108,10 +97,6 @@ export class Worker {
     console.log("[Worker] Poll loop exited");
   }
 
-  /**
-   * Atomically moves a job id from waiting:* → active, respecting priority.
-   * Uses LMOVE which is O(1) and safe under concurrent workers.
-   */
   private async claimNextJob(): Promise<string | null> {
     const { high, medium, low } = this.queue.waitingKeys();
     const activeKey             = this.queue.activeKeyName();
@@ -139,11 +124,9 @@ export class Worker {
     try {
       await this.handler(job);
 
-      // markCompleted now atomically updates the job hash + completed list
       await this.queue.markCompleted(job.id);
       await this.queue.removeFromActive(job.id);
 
-      // Refresh job from Redis so addHistoryEntry sees the final state
       const completed = await this.queue.getJob(job.id);
       if (completed) await this.queue.addHistoryEntry(completed);
 
@@ -153,8 +136,7 @@ export class Worker {
       job.lastError     = String(err?.message ?? err);
 
       if (job.attemptsMade >= job.maxAttempts) {
-        // Permanently failed — markFailed atomically updates hash + failed list
-        await this.queue.saveJob(job); // persist lastError + attemptsMade first
+        await this.queue.saveJob(job); 
         await this.queue.markFailed(job.id);
         await this.queue.removeFromActive(job.id);
 
@@ -165,7 +147,6 @@ export class Worker {
           `[Worker] Job ${job.id} failed permanently after ${job.attemptsMade} attempt(s)`
         );
       } else {
-        // Retry with exponential-ready backoff via the delayed sorted set
         const nextRun  = Date.now() + job.backoffMs;
         job.runAfter   = nextRun;
         job.status     = "waiting";

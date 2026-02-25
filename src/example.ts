@@ -30,12 +30,12 @@ async function main() {
       .catch((err) => console.error("Enqueue error", err));
   }, 2000);
 
-  // Graceful shutdown
+
   const shutdown = async () => {
     console.log("\n[Example] Shutting down...");
     clearInterval(interval);
-    await worker.stop();      // stop poll loops
-    await redis.quit();       // close redis AFTER workers stop
+    await worker.stop();      
+    await redis.quit();       
     process.exit(0);
   };
 

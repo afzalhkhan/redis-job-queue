@@ -47,7 +47,6 @@ describe("Queue", () => {
     expect(job.runAfter - (before + delayMs)).toBeLessThanOrEqual(20_000);
   });
 
-  // ── promoteDelayedJobs ───────────────────────────────────────────────────
 
   it("promoteDelayedJobs moves due jobs into the waiting queue", async () => {
     const job        = await queue.enqueue({ foo: "delayed" }, { delayMs: 5_000, priority: "high" });
@@ -57,7 +56,6 @@ describe("Queue", () => {
     expect(await redis.zCard(delayedKey)).toBe(1);
     expect(await redis.lLen(waitingKeys.high)).toBe(0);
 
-    // Back-date the score so it's due
     await redis.zAdd(delayedKey, [{ score: Date.now() - 1000, value: job.id }]);
 
     const moved = await queue.promoteDelayedJobs();
@@ -67,7 +65,6 @@ describe("Queue", () => {
     expect(await redis.lLen(waitingKeys.high)).toBe(1);
   });
 
-  // ── recoverStuckJobs ─────────────────────────────────────────────────────
 
   it("recoverStuckJobs moves long-running active jobs back to waiting", async () => {
     const waitingKeys = queue.waitingKeys();
@@ -93,7 +90,6 @@ describe("Queue", () => {
     expect(updated?.startedAt).toBeUndefined();
   });
 
-  // ── markCompleted / markFailed ───────────────────────────────────────────
 
   it("markCompleted updates job status to completed and pushes to completed list", async () => {
     const job = await queue.enqueue({ foo: "done" });
@@ -121,8 +117,6 @@ describe("Queue", () => {
     expect(failedList).toContain(job.id);
   });
 
-  // ── addHistoryEntry ──────────────────────────────────────────────────────
-
   it("addHistoryEntry keeps only the latest 50 jobs", async () => {
     const historyKey = queue.historyKeyName();
 
@@ -149,7 +143,6 @@ describe("Queue", () => {
     expect(raw.length).toBe(50);
   });
 
-  // ── getQueueMetrics ──────────────────────────────────────────────────────
 
   it("getQueueMetrics aggregates counts correctly", async () => {
     const j1 = await queue.enqueue({ t: 1 }, { priority: "high" });

@@ -1,4 +1,3 @@
-// src/metricsCore.ts
 import { redis } from "./redisClient";
 
 const KEY_PREFIX = process.env.REDIS_NAMESPACE ?? "rq:";

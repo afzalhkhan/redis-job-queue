@@ -16,7 +16,7 @@ export interface Job {
   backoffMs: number;
   createdAt: number;
   updatedAt: number;
-  runAfter: number; // timestamp when job becomes eligible
+  runAfter: number;
   status: JobStatus;
   priority: Priority;
   startedAt?: number;

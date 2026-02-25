@@ -8,7 +8,6 @@ const KEY_PREFIX = process.env.REDIS_NAMESPACE ?? "rq:";
 export class Queue {
   constructor(public readonly name: string) {}
 
-  // ----- key helpers -----
 
   private waitingKey(priority: Priority) {
     return `${KEY_PREFIX}queue:${this.name}:waiting:${priority}`;
@@ -38,7 +37,6 @@ export class Queue {
     return `${KEY_PREFIX}queue:${this.name}:history`;
   }
 
-  // ----- public key accessors (used by worker / server / metrics) -----
 
   activeKeyName()  { return this.activeKey();  }
   delayedKeyName() { return this.delayedKey(); }
@@ -52,7 +50,6 @@ export class Queue {
     };
   }
 
-  // ----- core queue ops -----
 
   async enqueue(data: any, options: EnqueueOptions = {}): Promise<Job> {
     const id              = randomUUID();
@@ -88,11 +85,6 @@ export class Queue {
     return job;
   }
 
-  /**
-   * Move due delayed jobs into the appropriate priority waiting queue.
-   * Fetches all job payloads in parallel, then applies all Redis writes
-   * in a single pipeline — O(n) round-trips reduced to 2.
-   */
   async promoteDelayedJobs(): Promise<number> {
     const now        = Date.now();
     const delayedKey = this.delayedKey();
@@ -100,10 +92,10 @@ export class Queue {
     const dueIds = await redis.zRangeByScore(delayedKey, 0, now);
     if (dueIds.length === 0) return 0;
 
-    // Fetch all job payloads in parallel (1 round-trip for all)
+
     const raws = await Promise.all(dueIds.map((id) => redis.get(this.jobKey(id))));
 
-    // Apply all promotions in one pipeline
+
     const pipeline = redis.multi();
     let moved = 0;
 
@@ -111,9 +103,9 @@ export class Queue {
       const id  = dueIds[i];
       const raw = raws[i];
 
-      pipeline.zRem(delayedKey, id); // always remove from delayed
+      pipeline.zRem(delayedKey, id); 
 
-      if (!raw) continue; // stale id — just clean it up
+      if (!raw) continue; 
 
       const job = JSON.parse(raw) as Job;
       pipeline.rPush(this.waitingKey(job.priority), job.id);
@@ -124,10 +116,6 @@ export class Queue {
     return moved;
   }
 
-  /**
-   * Mark a job as completed: updates the job hash AND pushes to the
-   * completed list atomically so status is never stale.
-   */
   async markCompleted(jobId: string): Promise<void> {
     const job = await this.getJob(jobId);
     if (!job) return;
@@ -143,10 +131,6 @@ export class Queue {
       .exec();
   }
 
-  /**
-   * Mark a job as failed: updates the job hash AND pushes to the
-   * failed list atomically so status is never stale.
-   */
   async markFailed(jobId: string): Promise<void> {
     const job = await this.getJob(jobId);
     if (!job) return;
@@ -176,13 +160,6 @@ export class Queue {
   async removeFromActive(jobId: string): Promise<void> {
     await redis.lRem(this.activeKey(), 0, jobId);
   }
-
-  /**
-   * Crash recovery: move jobs that have been active longer than
-   * maxProcessingMs back to the waiting queue.
-   * Fetches all job payloads in parallel, then applies all Redis writes
-   * in a single pipeline — O(n) round-trips reduced to 2.
-   */
   async recoverStuckJobs(maxProcessingMs: number): Promise<number> {
     const now       = Date.now();
     const activeKey = this.activeKey();
@@ -190,7 +167,7 @@ export class Queue {
     const jobIds = await redis.lRange(activeKey, 0, -1);
     if (jobIds.length === 0) return 0;
 
-    // Fetch all jobs in parallel (1 round-trip for all)
+
     const jobs = await Promise.all(jobIds.map((id) => this.getJob(id)));
 
     const pipeline = redis.multi();
@@ -201,7 +178,7 @@ export class Queue {
       const job = jobs[i];
 
       if (!job) {
-        pipeline.lRem(activeKey, 0, id); // stale id — clean up
+        pipeline.lRem(activeKey, 0, id); 
         continue;
       }
 
@@ -230,10 +207,6 @@ export class Queue {
     return recovered;
   }
 
-  /**
-   * Store a compact history entry. Keeps only the newest 50 entries.
-   * LPUSH + LTRIM are sent as one atomic pipeline — safe under concurrency.
-   */
   async addHistoryEntry(job: Job): Promise<void> {
     const entry = {
       id:          job.id,

@@ -29,12 +29,12 @@ export function getOrCreateQueue(name: string): Queue {
       `[Handler:${name}] Processing job`
     );
 
-    // Example: random failure
+
     if (Math.random() < 0.2) {
       throw new Error("Random failure in REST worker");
     }
 
-    // Simulate work
+
     await new Promise((res) => setTimeout(res, 300));
   };
 
@@ -44,7 +44,7 @@ export function getOrCreateQueue(name: string): Queue {
     maxProcessingMs: 15_000,
   });
 
-  worker.start(); // fire and forget
+  worker.start(); 
 
   queues.set(name, { queue, worker, handler });
   fastify.log.info(`[Server] Created queue + worker for "${name}"`);
@@ -52,7 +52,6 @@ export function getOrCreateQueue(name: string): Queue {
   return queue;
 }
 
-// POST /enqueue
 fastify.post("/enqueue", async (request, reply) => {
   try {
     const body = request.body as {
@@ -106,7 +105,6 @@ fastify.register(metricsRoutes);
 async function start() {
   await initRedis();
 
-  // ensure default queue + worker exist
   getOrCreateQueue("default");
 
   const port = Number(process.env.PORT) || 3000;
