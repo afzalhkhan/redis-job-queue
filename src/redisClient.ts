@@ -1,0 +1,18 @@
+// src/redisClient.ts
+import "dotenv/config";
+import { createClient } from "redis";
+
+export const redis = createClient({
+  url: process.env.REDIS_URL || "redis://localhost:6379",
+});
+
+redis.on("error", (err) => {
+  console.error("[Redis] Error:", err);
+});
+
+export async function initRedis() {
+  if (!redis.isOpen) {
+    await redis.connect();
+    console.log("[Redis] Connected");
+  }
+}
