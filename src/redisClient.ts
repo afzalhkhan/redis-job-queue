@@ -13,6 +13,5 @@ redis.on("error", (err) => {
 export async function initRedis() {
   if (!redis.isOpen) {
     await redis.connect();
-    console.log("[Redis] Connected");
   }
 }
